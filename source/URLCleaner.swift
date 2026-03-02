@@ -168,6 +168,16 @@ private struct ParsedRulesPayload: Codable {
     let providers: [ProviderEntry]
 }
 
+private struct ParsedRulesDocument: Codable {
+    struct Meta: Codable {
+        let license: String
+        let derived_from: [String]
+    }
+
+    let _meta: Meta
+    let rules: ParsedRulesPayload
+}
+
 private final class RulesLoader {
     private let fileManager = FileManager.default
     private let defaultRepoURL = "https://raw.githubusercontent.com/jayf0x/Pure-Paste/refs/heads/main/assets/parsedRules.json"
@@ -263,7 +273,13 @@ private final class RulesLoader {
     }
 
     private func parseRules(from data: Data) -> URLCleaningRules? {
-        guard let payload = try? JSONDecoder().decode(ParsedRulesPayload.self, from: data) else {
+        let payload: ParsedRulesPayload
+        if let wrapped = try? JSONDecoder().decode(ParsedRulesDocument.self, from: data) {
+            payload = wrapped.rules
+        } else if let flat = try? JSONDecoder().decode(ParsedRulesPayload.self, from: data) {
+            // Backward compatibility with previous flat schema.
+            payload = flat
+        } else {
             return nil
         }
 
@@ -377,11 +393,11 @@ private final class RulesLoader {
     }
 
     private func cacheDirectoryURL() -> URL {
-        let base = fileManager.urls(for: .cachesDirectory, in: .userDomainMask).first
+        let base = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
             ?? URL(fileURLWithPath: NSTemporaryDirectory(), isDirectory: true)
         let purePaste = base.appendingPathComponent("PurePaste", isDirectory: true)
-        let legacy = base.appendingPathComponent("URLSafeClipboard", isDirectory: true)
-        migrateLegacyCache(from: legacy, to: purePaste)
+        let legacyAppSupport = base.appendingPathComponent("URLSafeClipboard", isDirectory: true)
+        migrateLegacyCache(from: legacyAppSupport, to: purePaste)
         return purePaste
     }
 

@@ -96,26 +96,51 @@ def build_parsed_rules(txt_content: str, clearurls_root: dict):
     providers = parse_provider_rules(clearurls_root)
 
     return {
-        "generalExact": general_exact,
-        "generalRegex": general_regex,
-        "providers": providers,
+        "_meta": {
+            "license": "GPL-3.0",
+            "derived_from": [
+                "uBlock Origin uAssets (GPL-3.0)",
+                "ClearURLs Rules (LGPL-3.0)",
+            ],
+        },
+        "rules": {
+            "generalExact": general_exact,
+            "generalRegex": general_regex,
+            "providers": providers,
+        },
     }
 
 
 def validate_parsed_rules(parsed_rules: dict) -> None:
-    required_top_level = {"generalExact", "generalRegex", "providers"}
+    required_top_level = {"_meta", "rules"}
     missing = required_top_level.difference(parsed_rules.keys())
     if missing:
         raise ValueError(f"Missing required top-level keys: {sorted(missing)}")
 
-    if not isinstance(parsed_rules["generalExact"], list):
+    meta = parsed_rules["_meta"]
+    if not isinstance(meta, dict):
+        raise ValueError("_meta must be an object")
+    if meta.get("license") != "GPL-3.0":
+        raise ValueError("_meta.license must be GPL-3.0")
+    derived_from = meta.get("derived_from")
+    if not isinstance(derived_from, list) or len(derived_from) < 2:
+        raise ValueError("_meta.derived_from must be a list with upstream entries")
+
+    rules = parsed_rules["rules"]
+    if not isinstance(rules, dict):
+        raise ValueError("rules must be an object")
+    for key in ("generalExact", "generalRegex", "providers"):
+        if key not in rules:
+            raise ValueError(f"rules missing key '{key}'")
+
+    if not isinstance(rules["generalExact"], list):
         raise ValueError("generalExact must be a list")
-    if not isinstance(parsed_rules["generalRegex"], list):
+    if not isinstance(rules["generalRegex"], list):
         raise ValueError("generalRegex must be a list")
-    if not isinstance(parsed_rules["providers"], list):
+    if not isinstance(rules["providers"], list):
         raise ValueError("providers must be a list")
 
-    for index, provider in enumerate(parsed_rules["providers"]):
+    for index, provider in enumerate(rules["providers"]):
         if not isinstance(provider, dict):
             raise ValueError(f"providers[{index}] must be an object")
 
