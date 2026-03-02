@@ -6,6 +6,7 @@ APP_NAME="PurePaste"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="v${VERSION}"
 DMG_PATH="$ROOT_DIR/${APP_NAME}.dmg"
+VERSIONED_DMG_PATH="$ROOT_DIR/${APP_NAME}-${VERSION}.dmg"
 RULES_PATH="$ROOT_DIR/assets/parsedRules.json"
 
 cd "$ROOT_DIR"
@@ -65,13 +66,15 @@ if [[ ! -f "$DMG_PATH" ]]; then
   exit 1
 fi
 
+cp "$DMG_PATH" "$VERSIONED_DMG_PATH"
+
 echo "Creating git tag $TAG..."
 git tag -a "$TAG" -m "$APP_NAME $TAG"
 git push origin "$TAG"
 
 echo "Creating GitHub release $TAG..."
 set +e
-gh release create "$TAG" "$DMG_PATH" \
+gh release create "$TAG" "$VERSIONED_DMG_PATH" \
   --title "$APP_NAME $TAG" \
   --generate-notes \
   --draft
@@ -81,7 +84,7 @@ set -e
 
 if [[ $release_exit -ne 0 ]]; then
   echo "Release upload failed after tag push."
-  echo "Recovery: gh release create '$TAG' '$DMG_PATH' --title '$APP_NAME $TAG' --generate-notes"
+  echo "Recovery: gh release create '$TAG' '$VERSIONED_DMG_PATH' --title '$APP_NAME $TAG' --generate-notes"
   exit $release_exit
 fi
 

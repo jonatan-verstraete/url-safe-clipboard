@@ -13,7 +13,7 @@ final class ClipboardWatcher {
     private var pendingWorkItem: DispatchWorkItem?
     private var lastObservedChangeCount: Int
     private var lastClipboardHash: String?
-    private var replaceModeEnabled = false
+    var onURLProcessed: ((String, Int) -> Void)?
 
     init(
         cleaner: URLCleaner,
@@ -48,10 +48,6 @@ final class ClipboardWatcher {
         pendingWorkItem = nil
     }
 
-    func setReplaceMode(_ enabled: Bool) {
-        replaceModeEnabled = enabled
-    }
-
     private func pollClipboard() {
         let changeCount = pasteboard.changeCount
         guard changeCount != lastObservedChangeCount else { return }
@@ -81,14 +77,15 @@ final class ClipboardWatcher {
         let currentHash = hashForClipboardString(snapshot)
         guard currentHash != lastClipboardHash else { return }
 
-        guard let cleaned = cleaner.cleanedURLStringIfNeeded(from: snapshot, replaceMode: replaceModeEnabled) else {
+        guard let cleaned = cleaner.cleanedURLStringIfNeeded(from: snapshot) else {
             lastClipboardHash = currentHash
             return
         }
 
-        if cleaned != snapshot {
-            if replaceClipboard(with: cleaned) {
-                lastClipboardHash = hashForClipboardString(cleaned)
+        if cleaned.urlString != snapshot {
+            if replaceClipboard(with: cleaned.urlString) {
+                lastClipboardHash = hashForClipboardString(cleaned.urlString)
+                onURLProcessed?(cleaned.urlString, cleaned.removedCount)
             }
             return
         }

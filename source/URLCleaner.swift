@@ -4,17 +4,15 @@ import Foundation
 final class URLCleaner {
     private let loader: RulesLoader
     private var rules: URLCleaningRules
-    private var shouldRefetchOnLaunch: Bool
 
     init() {
         let loader = RulesLoader()
         self.loader = loader
         let bootstrap = loader.loadBootstrapRules()
         self.rules = bootstrap.rules
-        self.shouldRefetchOnLaunch = !bootstrap.loadedFromCache
     }
 
-    func cleanedURLStringIfNeeded(from input: String, replaceMode: Bool = false) -> String? {
+    func cleanedURLStringIfNeeded(from input: String) -> CleaningResult? {
         let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
 
@@ -26,7 +24,7 @@ final class URLCleaner {
         }
 
         guard let queryItems = components.queryItems, !queryItems.isEmpty else {
-            return applyFutureTransforms(to: trimmed)
+            return CleaningResult(urlString: applyFutureTransforms(to: trimmed), removedCount: 0)
         }
 
         let matchingProviders = rules.providers.filter { $0.matches(urlString: trimmed) }
@@ -48,14 +46,7 @@ final class URLCleaner {
             )
 
             if shouldNeutralize {
-                if replaceMode {
-                    if item.value != "null" || normalizedName != item.name {
-                        didMutate = true
-                    }
-                    outputQueryItems.append(URLQueryItem(name: normalizedName, value: "null"))
-                } else {
-                    didMutate = true
-                }
+                didMutate = true
                 continue
             }
 
@@ -67,24 +58,15 @@ final class URLCleaner {
             }
         }
 
+        let removedCount = queryItems.count - outputQueryItems.count
+
         guard didMutate else {
-            return applyFutureTransforms(to: trimmed)
+            return CleaningResult(urlString: applyFutureTransforms(to: trimmed), removedCount: 0)
         }
 
         components.queryItems = outputQueryItems.isEmpty ? nil : outputQueryItems
         let cleaned = components.url?.absoluteString ?? trimmed
-        return applyFutureTransforms(to: cleaned)
-    }
-
-    func refreshRulesIfNeededOnLaunch() async -> RuleRefreshStatus? {
-        guard shouldRefetchOnLaunch else { return nil }
-        shouldRefetchOnLaunch = false
-
-        let result = await loader.refreshRulesFromRepo()
-        if let refreshedRules = result.rules {
-            rules = refreshedRules
-        }
-        return result.status
+        return CleaningResult(urlString: applyFutureTransforms(to: cleaned), removedCount: max(removedCount, 0))
     }
 
     func refetchRulesManually() async -> RuleRefreshStatus {
@@ -99,6 +81,11 @@ final class URLCleaner {
         // Placeholder for future enhancements (AMP unwrapping, redirect decoding, etc).
         cleanedURL
     }
+}
+
+struct CleaningResult {
+    let urlString: String
+    let removedCount: Int
 }
 
 struct RuleRefreshStatus {

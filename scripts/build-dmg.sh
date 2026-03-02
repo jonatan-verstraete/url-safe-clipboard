@@ -117,4 +117,5 @@ if [[ -n "$SIGN_IDENTITY" ]]; then
   codesign --force --sign "$SIGN_IDENTITY" "$FINAL_DMG"
 fi
 
+clear
 echo "Built DMG: $FINAL_DMG"

@@ -1,51 +1,55 @@
 # PurePaste
 
-PurePaste is a tiny macOS menu bar app that tries to clean tracking junk from links you copy.
+PurePaste is a simple menu bar app for macOS that cleans common tracking parameters from URLs you copy.
 
-It is practical, not perfect. Some links clean nicely, some do not, and a few sites may still behave oddly.
+It helps often, but not always. Some links still need manual cleanup. That is why the app has a **Pause** button.
 
-## Install in 3 steps
+## Where to find releases
 
-1. Build the installer:
-   ```bash
-   ./scripts/build-dmg.sh
-   ```
-2. Open `./PurePaste.dmg`.
-3. Drag `PurePaste.app` to `Applications`.
+Download the latest DMG from the GitHub releases page:
+- https://github.com/jayf0x/Pure-Paste/releases
 
-That is it.
+If you build locally, the installer is created at:
+- `./PurePaste.dmg`
 
-## Daily use
+## How it works
 
-- Click the menu bar icon to open the menu.
-- `Pause` stops all clipboard polling.
-- `Activate` starts it again.
-- `Replace params` changes tracking values to `null` instead of removing them.
-- `Refetch rules` reloads the latest rules file from the repo.
+PurePaste watches your clipboard while active.
 
-## Create a release (maintainers)
+When you copy a URL:
+- it checks if the URL has known tracking parameters,
+- removes matching parameters,
+- writes the cleaned URL back to the clipboard,
+- increments a global counter of removed parameters.
 
-1. Update the `VERSION` value in `./scripts/release.sh`.
-2. Make sure you are logged into GitHub CLI:
-   ```bash
-   gh auth login
-   ```
-3. Run:
-   ```bash
-   ./scripts/release.sh
-   ```
+Rules are based on these sources:
+- `https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt`
+- `https://gitlab.com/ClearURLs/rules/-/raw/master/data.min.json`
 
-This script builds `PurePaste.dmg`, tags `vX.Y.Z`, and creates a GitHub release with generated notes.
+The app uses a pre-parsed rules file:
+- `assets/parsedRules.json`
+
+In the app menu:
+- **Pause / Activate** controls clipboard monitoring.
+- **Options > Refetch rules** reloads the latest `parsedRules.json` from the repo URL.
+- **Options > Reset counter** resets the global removed-parameter counter.
+
+## Limitations
+
+- It is not a security tool.
+- It may miss some trackers or break edge-case URLs.
+- Background rule fetch may fail (network, rate limits, etc.).
+- Clipboard automation behavior can differ per app/site.
 
 ## For nerds
 
-- App source lives in `./source`.
-- Rules are loaded from `assets/parsedRules.json` and cached at:
+- Build installer:
+  - `./scripts/build-dmg.sh`
+- Create release draft:
+  - `./scripts/release.sh`
+- Persistent app state (last cleaned URL + global counter):
+  - `~/Library/Application Support/PurePaste/state.json`
+- Rules cache:
   - `~/Library/Caches/PurePaste/parsedRules.json`
-- One-time migration is supported from the old cache path:
-  - `~/Library/Caches/URLSafeClipboard/parsedRules.json`
-- Rules URL override:
-  - env: `PUREPASTE_RULES_URL`
-  - plist key: `PurePasteParsedRulesURL`
-- Build command used by script:
-  - `swift build -c release --product PurePaste`
+- Rules URL override env var:
+  - `PUREPASTE_RULES_URL`

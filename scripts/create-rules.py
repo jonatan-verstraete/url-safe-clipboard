@@ -5,20 +5,20 @@ import re
 import urllib.request
 from pathlib import Path
 
-TXT_URL = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt"
-JSON_URL = "https://gitlab.com/ClearURLs/rules/-/raw/master/data.min.json"
+UBLOCK_TXT_URL = "https://raw.githubusercontent.com/uBlockOrigin/uAssets/master/filters/privacy-removeparam.txt"
+CLEARURLS_JSON_URL = "https://gitlab.com/ClearURLs/rules/-/raw/master/data.min.json"
 
 REMOVE_PARAM_PREFIX = "$removeparam="
 REGEX_META_RE = re.compile(r"[\\^$.*+?()\[\]{}|]")
 
 
-def fetch_text(url: str) -> str:
-    with urllib.request.urlopen(url, timeout=30) as response:
+def fetch_ublock_removeparam_txt() -> str:
+    with urllib.request.urlopen(UBLOCK_TXT_URL, timeout=30) as response:
         return response.read().decode("utf-8")
 
 
-def fetch_json(url: str) -> dict:
-    with urllib.request.urlopen(url, timeout=30) as response:
+def fetch_clearurls_data_json() -> dict:
+    with urllib.request.urlopen(CLEARURLS_JSON_URL, timeout=30) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -58,9 +58,9 @@ def parse_general_rules(txt_content: str):
     return sorted(exact), regex_patterns
 
 
-def parse_provider_rules(json_root: dict):
+def parse_provider_rules(clearurls_root: dict):
     providers = []
-    provider_map = json_root.get("providers", {})
+    provider_map = clearurls_root.get("providers", {})
 
     for provider_name in sorted(provider_map.keys()):
         provider = provider_map[provider_name]
@@ -91,9 +91,9 @@ def parse_provider_rules(json_root: dict):
     return providers
 
 
-def build_parsed_rules(txt_content: str, json_root: dict):
+def build_parsed_rules(txt_content: str, clearurls_root: dict):
     general_exact, general_regex = parse_general_rules(txt_content)
-    providers = parse_provider_rules(json_root)
+    providers = parse_provider_rules(clearurls_root)
 
     return {
         "generalExact": general_exact,
@@ -102,47 +102,54 @@ def build_parsed_rules(txt_content: str, json_root: dict):
     }
 
 
+def validate_parsed_rules(parsed_rules: dict) -> None:
+    required_top_level = {"generalExact", "generalRegex", "providers"}
+    missing = required_top_level.difference(parsed_rules.keys())
+    if missing:
+        raise ValueError(f"Missing required top-level keys: {sorted(missing)}")
+
+    if not isinstance(parsed_rules["generalExact"], list):
+        raise ValueError("generalExact must be a list")
+    if not isinstance(parsed_rules["generalRegex"], list):
+        raise ValueError("generalRegex must be a list")
+    if not isinstance(parsed_rules["providers"], list):
+        raise ValueError("providers must be a list")
+
+    for index, provider in enumerate(parsed_rules["providers"]):
+        if not isinstance(provider, dict):
+            raise ValueError(f"providers[{index}] must be an object")
+
+        for key in ("name", "urlPattern", "exactParams", "regexParams"):
+            if key not in provider:
+                raise ValueError(f"providers[{index}] missing key '{key}'")
+
+        if not isinstance(provider["name"], str) or not provider["name"]:
+            raise ValueError(f"providers[{index}].name must be a non-empty string")
+        if not isinstance(provider["urlPattern"], str) or not provider["urlPattern"]:
+            raise ValueError(f"providers[{index}].urlPattern must be a non-empty string")
+        if not isinstance(provider["exactParams"], list):
+            raise ValueError(f"providers[{index}].exactParams must be a list")
+        if not isinstance(provider["regexParams"], list):
+            raise ValueError(f"providers[{index}].regexParams must be a list")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Fetch upstream rules and generate assets/parsedRules.json")
     parser.add_argument("--output", default="assets/parsedRules.json", help="Output path for parsed rules")
-    parser.add_argument("--offline", action="store_true", help="Use local assets/privacy-removeparam.txt and assets/data.min.json")
     args = parser.parse_args()
 
-    root = Path(__file__).resolve().parent
-    assets_dir = root / "assets"
+    txt_content = fetch_ublock_removeparam_txt()
+    clearurls_root = fetch_clearurls_data_json()
+    parsed_rules = build_parsed_rules(txt_content, clearurls_root)
+    validate_parsed_rules(parsed_rules)
 
-    txt_local_path = assets_dir / "privacy-removeparam.txt"
-    json_local_path = assets_dir / "data.min.json"
-
-    if args.offline:
-        txt_content = txt_local_path.read_text(encoding="utf-8")
-        json_root = json.loads(json_local_path.read_text(encoding="utf-8"))
-    else:
-        try:
-            txt_content = fetch_text(TXT_URL)
-            json_root = fetch_json(JSON_URL)
-        except Exception as error:
-            print(f"Remote fetch failed ({error}); using local assets fallback.")
-            if txt_local_path.exists() and json_local_path.exists():
-                txt_content = txt_local_path.read_text(encoding="utf-8")
-                json_root = json.loads(json_local_path.read_text(encoding="utf-8"))
-            else:
-                existing_parsed = assets_dir / "parsedRules.json"
-                if existing_parsed.exists():
-                    print("Local raw source files are missing; keeping existing assets/parsedRules.json.")
-                    return
-                raise RuntimeError(
-                    "Local fallback files assets/privacy-removeparam.txt and assets/data.min.json are missing."
-                )
-
-    parsed = build_parsed_rules(txt_content, json_root)
-
+    root = Path(__file__).resolve().parents[1]
     output_path = Path(args.output)
     if not output_path.is_absolute():
         output_path = root / output_path
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_path.write_text(json.dumps(parsed, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
+    output_path.write_text(json.dumps(parsed_rules, separators=(",", ":"), ensure_ascii=True), encoding="utf-8")
     print(f"Wrote parsed rules: {output_path}")
 
 

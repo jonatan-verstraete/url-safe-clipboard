@@ -12,31 +12,26 @@ struct PurePasteApp: App {
                 appState.toggleActive()
             }
 
-            Toggle("Replace params", isOn: Binding(
-                get: { appState.replaceModeEnabled },
-                set: { appState.setReplaceMode($0) }
-            ))
-            .keyboardShortcut("r")
-
             Divider()
 
-            Button(appState.isRefetchingRules ? "Refetching rules..." : "Refetch rules") {
-                appState.refetchRules()
-            }
-            .disabled(appState.isRefetchingRules)
-
-            if !appState.isActive {
-                Text("Status: Paused")
-                    .font(.caption)
-            } else if appState.replaceModeEnabled {
-                Text("Status: Active (Replace)")
-                    .font(.caption)
-            }
+            Text("Removed params: \(appState.totalParamsRemoved)")
+                .font(.caption)
 
             if let rulesStatusMessage = appState.rulesStatusMessage {
                 Text(rulesStatusMessage)
                     .font(.caption2)
                     .lineLimit(2)
+            }
+
+            Menu("Options") {
+                Button(appState.isRefetchingRules ? "Refetching rules..." : "Refetch rules") {
+                    appState.refetchRules()
+                }
+                .disabled(appState.isRefetchingRules)
+
+                Button("Reset counter") {
+                    appState.resetCounter()
+                }
             }
 
             Divider()
