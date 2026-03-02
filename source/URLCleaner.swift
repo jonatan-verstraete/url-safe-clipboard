@@ -183,7 +183,7 @@ private struct ParsedRulesPayload: Codable {
 
 private final class RulesLoader {
     private let fileManager = FileManager.default
-    private let defaultRepoURL = "https://raw.githubusercontent.com/jayf0x/url-safe-clipboard/refs/heads/main/assets/parsedRules.json"
+    private let defaultRepoURL = "https://raw.githubusercontent.com/jayf0x/Pure-Paste/refs/heads/main/assets/parsedRules.json"
 
     func loadBootstrapRules() -> BootstrapLoadResult {
         if let cachedData = loadCachedParsedRulesData(),
