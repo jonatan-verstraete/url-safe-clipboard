@@ -73,7 +73,9 @@ echo "Creating GitHub release $TAG..."
 set +e
 gh release create "$TAG" "$DMG_PATH" \
   --title "$APP_NAME $TAG" \
-  --generate-notes
+  --generate-notes \
+  --draft
+
 release_exit=$?
 set -e
 
