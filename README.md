@@ -1,14 +1,16 @@
 # PurePaste
 
 PurePaste is a privacy friendly utility that cleans common tracking parameters from URLs you copy.
+For more serious tools, please checkout [uBO](https://github.com/gorhill/uBlock).
 
+**Install steps**:
+- [**Download the ZIP here**](https://github.com/jayf0x/Pure-Paste/releases/latest)
+- double click the downloaded zip
+- Open `Terminal`, and paste `xattr -dr com.apple.quarantine ~/Downloads/PurePaste.app` (security doesn't like none identified developers).
+- Move the app to Applications, or again paste `mv ~/Downloads/PurePaste.app /Applications/PurePaste.app`
+- double click the `PurePaste.app`
 
-
-[**Download here**](https://github.com/jayf0x/Pure-Paste/releases/latest), unzip, then right-click `PurePaste.app` and choose **Open**.
-If you want to package locally, run [`./scripts/build-dmg.sh`](./scripts/build-dmg.sh).
-
-
-> This is meant as a light tool focussed on UX and none-devs. For more serious tools, please checkout [uBO](https://github.com/gorhill/uBlock).
+Or you want to package locally, run [`bash ./scripts/build-dmg.sh`](./scripts/build-dmg.sh).
 
 
 ## How it works

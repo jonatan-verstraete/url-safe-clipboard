@@ -84,7 +84,7 @@ set +e
 gh release create "$TAG" \
   "$VERSIONED_ZIP_PATH" \
   --title "$APP_NAME $TAG" \
-  --notes $'Install steps:\n1. Download the ZIP.\n2. Unzip it.\n3. Right-click PurePaste.app -> Open.\n4. Click "Open" in the dialog.\n\nIf blocked, go to Settings > Security and allow the app to run.\n\nAdvanced:\nxattr -dr com.apple.quarantine PurePaste.app' \
+  # --notes $'Expand Assets below for content' \
   --draft
 
 release_exit=$?
