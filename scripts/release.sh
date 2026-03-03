@@ -84,7 +84,7 @@ set +e
 gh release create "$TAG" \
   "$VERSIONED_ZIP_PATH" \
   --title "$APP_NAME $TAG" \
-  # --notes $'Expand Assets below for content' \
+  --notes $'Expand Assets below for content' \
   --draft
 
 release_exit=$?
