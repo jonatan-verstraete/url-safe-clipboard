@@ -4,96 +4,59 @@ set -euo pipefail
 APP_NAME="PurePaste"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 DIST_DIR="$ROOT_DIR/dist"
-BACKGROUND_PNG="$ROOT_DIR/assets/background.png"
-INSTALLER_SOURCE="$ROOT_DIR/scripts/install-from-source.sh"
-SOURCE_ARCHIVE="$DIST_DIR/${APP_NAME}-source.tar.gz"
-STAGE_DIR="$DIST_DIR/dmg-stage"
+APP_DIR="$DIST_DIR/$APP_NAME.app"
+BUILD_BIN="$ROOT_DIR/.build/release/$APP_NAME"
+PLIST_PATH="$ROOT_DIR/PurePaste-Info.plist"
+ICON_PNG="$ROOT_DIR/assets/icon.png"
+ZIP_PATH="$ROOT_DIR/${APP_NAME}.zip"
 
-INSTALLER_COMMAND_NAME="Install ${APP_NAME}.command"
-README_INSTALL_NAME="README-Install.txt"
-FINAL_DMG="$ROOT_DIR/${APP_NAME}.dmg"
+ICONSET_DIR="$DIST_DIR/AppIcon.iconset"
+ICON_ICNS="$DIST_DIR/AppIcon.icns"
+TMP_ZIP_PATH="$DIST_DIR/${APP_NAME}.zip"
 
 cleanup() {
-  rm -rf "$STAGE_DIR"
+  rm -rf "$ICONSET_DIR"
+  rm -f "$ICON_ICNS"
 }
-
 trap cleanup EXIT
 
-if ! command -v create-dmg >/dev/null 2>&1; then
-  echo "Error: create-dmg is not installed or not in PATH."
-  exit 1
-fi
-
-if [[ ! -f "$BACKGROUND_PNG" ]]; then
-  echo "Error: missing DMG background at $BACKGROUND_PNG"
-  exit 1
-fi
-
-if [[ ! -f "$INSTALLER_SOURCE" ]]; then
-  echo "Error: missing installer script at $INSTALLER_SOURCE"
+if [[ ! -f "$PLIST_PATH" ]]; then
+  echo "Error: missing plist at $PLIST_PATH"
   exit 1
 fi
 
 mkdir -p "$DIST_DIR"
 
-echo "Packaging source archive..."
-if command -v git >/dev/null 2>&1 && [[ -d "$ROOT_DIR/.git" ]]; then
-  git -C "$ROOT_DIR" archive --format=tar.gz --output "$SOURCE_ARCHIVE" HEAD
-else
-  tar \
-    --exclude ".git" \
-    --exclude ".build" \
-    --exclude "dist" \
-    -czf "$SOURCE_ARCHIVE" \
-    -C "$ROOT_DIR" .
+echo "Building $APP_NAME..."
+swift build -c release --package-path "$ROOT_DIR" --product "$APP_NAME"
+
+echo "Assembling app bundle..."
+rm -rf "$APP_DIR"
+mkdir -p "$APP_DIR/Contents/MacOS" "$APP_DIR/Contents/Resources"
+cp "$BUILD_BIN" "$APP_DIR/Contents/MacOS/$APP_NAME"
+cp "$PLIST_PATH" "$APP_DIR/Contents/Info.plist"
+cp -R "$ROOT_DIR/assets" "$APP_DIR/Contents/Resources/assets"
+
+if [[ -f "$ICON_PNG" ]]; then
+  mkdir -p "$ICONSET_DIR"
+  sips -z 16 16 "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null
+  sips -z 32 32 "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null
+  sips -z 32 32 "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null
+  sips -z 64 64 "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null
+  sips -z 128 128 "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null
+  sips -z 256 256 "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
+  sips -z 256 256 "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null
+  sips -z 512 512 "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
+  sips -z 512 512 "$ICON_PNG" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null
+  cp "$ICON_PNG" "$ICONSET_DIR/icon_512x512@2x.png"
+  iconutil -c icns "$ICONSET_DIR" -o "$ICON_ICNS"
+  cp "$ICON_ICNS" "$APP_DIR/Contents/Resources/AppIcon.icns"
 fi
 
-echo "Creating DMG staging folder..."
-rm -rf "$STAGE_DIR"
-mkdir -p "$STAGE_DIR"
-cp "$SOURCE_ARCHIVE" "$STAGE_DIR/${APP_NAME}-source.tar.gz"
-cp "$INSTALLER_SOURCE" "$STAGE_DIR/$INSTALLER_COMMAND_NAME"
-chmod +x "$STAGE_DIR/$INSTALLER_COMMAND_NAME"
+echo "Creating ZIP artifact..."
+rm -f "$ZIP_PATH" "$TMP_ZIP_PATH"
+ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$TMP_ZIP_PATH"
+cp "$TMP_ZIP_PATH" "$ZIP_PATH"
 
-cat > "$STAGE_DIR/$README_INSTALL_NAME" <<README
-1. Double-click \"$INSTALLER_COMMAND_NAME\".
-2. It builds $APP_NAME locally from bundled source.
-3. The app is installed to /Applications.
-
-If Swift tools are missing, run:
-  xcode-select --install
-README
-
-rm -f "$FINAL_DMG"
-
-echo "Creating source-installer DMG..."
-ICON_SIZE=128
-WINDOW_WIDTH=800
-WINDOW_HEIGHT=485
-
-THIRD=$(( WINDOW_WIDTH / 3 ))
-CENTER_X=$(( WINDOW_WIDTH / 2 - ICON_SIZE / 2 ))
-CENTER_Y=$(( WINDOW_HEIGHT / 2 + ICON_SIZE / 2 ))
-INSTALLER_X=$(( CENTER_X - THIRD / 2 - ICON_SIZE / 2 ))
-INSTALLER_Y=$(( CENTER_Y - ICON_SIZE / 2 ))
-README_X=$(( CENTER_X + THIRD + ICON_SIZE / 2 ))
-README_Y=$INSTALLER_Y
-
-create-dmg \
-  --volname "$APP_NAME" \
-  --window-size $WINDOW_WIDTH $WINDOW_HEIGHT \
-  --icon-size $ICON_SIZE \
-  --sandbox-safe \
-  --skip-jenkins \
-  --icon "$INSTALLER_COMMAND_NAME" $INSTALLER_X $INSTALLER_Y \
-  --icon "$README_INSTALL_NAME" $README_X $README_Y \
-  --background "$BACKGROUND_PNG" \
-  --format UDZO \
-  --no-internet-enable \
-  "$FINAL_DMG" \
-  "$STAGE_DIR"
-
-if [[ -t 1 ]] && command -v clear >/dev/null 2>&1; then
-  clear
-fi
-echo "Built DMG: $FINAL_DMG"
+echo "Built app bundle: $APP_DIR"
+echo "Built ZIP: $ZIP_PATH"

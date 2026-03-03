@@ -11,13 +11,9 @@ fi
 APP_NAME="PurePaste"
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TAG="v${VERSION}"
-DMG_PATH="$ROOT_DIR/${APP_NAME}.dmg"
-VERSIONED_DMG_PATH="$ROOT_DIR/${APP_NAME}-${VERSION}.dmg"
+ZIP_PATH="$ROOT_DIR/${APP_NAME}.zip"
+VERSIONED_ZIP_PATH="$ROOT_DIR/${APP_NAME}-${VERSION}.zip"
 RULES_PATH="$ROOT_DIR/assets/parsedRules.json"
-INSTALLER_SOURCE="$ROOT_DIR/scripts/install-from-source.sh"
-SOURCE_ARCHIVE_PATH="$ROOT_DIR/dist/${APP_NAME}-source.tar.gz"
-VERSIONED_INSTALLER_PATH="$ROOT_DIR/${APP_NAME}-install-from-source-${VERSION}.sh"
-VERSIONED_SOURCE_ARCHIVE_PATH="$ROOT_DIR/${APP_NAME}-source-${VERSION}.tar.gz"
 
 cd "$ROOT_DIR"
 
@@ -59,11 +55,6 @@ if [[ ! -f "$RULES_PATH" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$INSTALLER_SOURCE" ]]; then
-  echo "Error: missing installer script at $INSTALLER_SOURCE"
-  exit 1
-fi
-
 if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
   echo "Error: tag $TAG already exists locally."
   exit 1
@@ -74,23 +65,15 @@ if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; the
   exit 1
 fi
 
-echo "Building DMG for release $TAG..."
+echo "Building app ZIP for release $TAG..."
 "$ROOT_DIR/scripts/build-dmg.sh"
 
-if [[ ! -f "$DMG_PATH" ]]; then
-  echo "Error: expected DMG not found at $DMG_PATH"
+if [[ ! -f "$ZIP_PATH" ]]; then
+  echo "Error: expected ZIP not found at $ZIP_PATH"
   exit 1
 fi
 
-if [[ ! -f "$SOURCE_ARCHIVE_PATH" ]]; then
-  echo "Error: expected source archive not found at $SOURCE_ARCHIVE_PATH"
-  exit 1
-fi
-
-cp "$DMG_PATH" "$VERSIONED_DMG_PATH"
-cp "$INSTALLER_SOURCE" "$VERSIONED_INSTALLER_PATH"
-chmod +x "$VERSIONED_INSTALLER_PATH"
-cp "$SOURCE_ARCHIVE_PATH" "$VERSIONED_SOURCE_ARCHIVE_PATH"
+cp "$ZIP_PATH" "$VERSIONED_ZIP_PATH"
 
 echo "Creating git tag $TAG..."
 git tag -a "$TAG" -m "$APP_NAME $TAG"
@@ -99,11 +82,9 @@ git push origin "$TAG"
 echo "Creating GitHub release $TAG..."
 set +e
 gh release create "$TAG" \
-  "$VERSIONED_DMG_PATH" \
-  "$VERSIONED_INSTALLER_PATH" \
-  "$VERSIONED_SOURCE_ARCHIVE_PATH" \
+  "$VERSIONED_ZIP_PATH" \
   --title "$APP_NAME $TAG" \
-  --notes "Install via DMG by running 'Install ${APP_NAME}.command'. Alternate terminal install: download both ${APP_NAME}-install-from-source-${VERSION}.sh and ${APP_NAME}-source-${VERSION}.tar.gz into the same folder, then run the script." \
+  --notes $'Install steps:\n1. Download the ZIP.\n2. Unzip it.\n3. Right-click PurePaste.app -> Open.\n4. Click "Open" in the dialog.\n\nIf blocked, go to Settings > Security and allow the app to run.\n\nAdvanced:\nxattr -dr com.apple.quarantine PurePaste.app' \
   --draft
 
 release_exit=$?
@@ -111,7 +92,7 @@ set -e
 
 if [[ $release_exit -ne 0 ]]; then
   echo "Release upload failed after tag push."
-  echo "Recovery: gh release create '$TAG' '$VERSIONED_DMG_PATH' '$VERSIONED_INSTALLER_PATH' '$VERSIONED_SOURCE_ARCHIVE_PATH' --title '$APP_NAME $TAG' --draft"
+  echo "Recovery: gh release create '$TAG' '$VERSIONED_ZIP_PATH' --title '$APP_NAME $TAG' --draft"
   exit $release_exit
 fi
 

@@ -4,7 +4,7 @@ PurePaste is a privacy friendly utility that cleans common tracking parameters f
 
 
 
-[**Download here**](https://github.com/jayf0x/Pure-Paste/releases/latest), open the DMG, and run `Install PurePaste.command`.
+[**Download here**](https://github.com/jayf0x/Pure-Paste/releases/latest), unzip, then right-click `PurePaste.app` and choose **Open**.
 If you want to package locally, run [`./scripts/build-dmg.sh`](./scripts/build-dmg.sh).
 
 
