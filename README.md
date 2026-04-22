@@ -25,6 +25,11 @@ In the app menu:
 - **Options > Reset counter** resets the global removed-parameter counter.
 
 
+## When using Brave
+If you are using [`Brave`](https://brave.com), you can enable similar functionality using experimental flags:
+`chrome://flags/#brave-clean-link-js-api`
+
+
 ## Contribution
 This project includes and modifies rule data from:
 
